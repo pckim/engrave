@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engrave v2.10.5</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; color: #1a1a18; min-height: 100vh; padding: 20px 20px 160px; }
+  #app { max-width: 860px; margin: 0 auto; background: transparent; border-radius: 12px; padding: 20px; }
+
+  /* Top bar */
+  #topbar { position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 24px; }
+  #topbar-title { font-size: 24px; font-weight: 600; letter-spacing: 0.01em; text-align: center; }
+  body.main-active #topbar { justify-content: flex-start; }
+  body.main-active #topbar-title { text-align: left; }
+  body.main-active #topbar { margin-bottom: 38px; }
+  #vbadge { font-size: 12px; color: #888780; cursor: pointer; border: 1px solid #ddddd5; padding: 2px 10px; border-radius: 6px; }
+  #vbadge:hover { background: #f5f5f0; }
+
+  /* Changelog */
+  #changelog { display: none; border: 1px solid #ddddd5; border-radius: 8px; padding: 12px; margin-bottom: 14px; font-size: 13px; }
+  #changelog h3 { font-size: 14px; font-weight: 500; margin-bottom: 10px; }
+  .cl-entry { display: flex; gap: 8px; margin-bottom: 6px; align-items: flex-start; }
+  .cl-tag { font-size: 11px; padding: 2px 7px; border-radius: 5px; font-weight: 500; white-space: nowrap; margin-top: 1px; }
+  .cl-major { background: #FAECE7; color: #993C1D; }
+  .cl-medium { background: #EEEDFE; color: #3C3489; }
+  .cl-minor { background: #EAF3DE; color: #3B6D11; }
+
+  /* Legend + hints */
+  #legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: #888780; margin-bottom: 5px; align-items: center; }
+  #legend-inbox {
+    position: absolute;
+    right: 10px;
+    bottom: 8px;
+    z-index: 2;
+    background: rgba(255,255,255,0.85);
+    border-radius: 6px;
+    padding: 2px 6px;
+  }
+  .lswatch { width: 14px; height: 14px; border-radius: 2px; display: inline-block; vertical-align: middle; margin-right: 4px; }
+  #worktop {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  #left-tools { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; margin-top: 0; padding-top: 0; }
+  #right-tools { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; margin-top: 0; padding-top: 0; }
+  #hint-row { display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 10px; }
+  #legend { margin-bottom: 0; }
+  .hint-actions { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #7a7a74; font-weight: 600; }
+  .hint-actions .label { margin-right: 4px; }
+  .hint-link {
+    border: none;
+    background: transparent;
+    color: #6b6a63;
+    font: inherit;
+    font-weight: 600;
+    padding: 0;
+    cursor: pointer;
+  }
+  .hint-link:hover { color: #3f3d36; }
+  .hint-sep { color: #a2a199; }
+
+  /* Input */
+  #composer {
+    position: relative;
+    border: 1px solid #ddddd5;
+    border-radius: 10px;
+    background: #ffffff;
+    overflow: hidden;
+  }
+  textarea#tinput { width: 100%; min-height: 132px; font-size: 15px; padding: 12px 12px 52px 12px; border: none; background: transparent; color: #1a1a18; resize: vertical; font-family: inherit; outline: none; display: block; }
+  textarea#tinput:focus { border-color: #b4b2a9; }
+  #composer-controls {
+    position: absolute;
+    right: 10px;
+    bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    pointer-events: none;
+  }
+  #startbtn {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 1px solid #b4b2a9;
+    background: white;
+    color: #4a4943;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 17px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    pointer-events: auto;
+  }
+  #startbtn:hover { background: #f5f5f0; }
+  .guide-box {
+    margin-top: 10px;
+    border: 1px solid #ddddd5;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: #5f5e57;
+    line-height: 1.55;
+  }
+  .guide-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #3f3d36;
+    margin-bottom: 6px;
+  }
+  .guide-steps { margin-left: 18px; margin-bottom: 6px; }
+  .guide-note { color: #7a7972; }
+  #quick-steps { margin-bottom: 10px; }
+
+  /* Analysis status */
+  #analysis-status { display: none; font-size: 12px; padding: 3px 10px; border-radius: 6px; }
+  .as-ok { background: #EAF3DE; color: #3B6D11; }
+  .as-warn { background: #FAEEDA; color: #854F0B; }
+
+  /* Toolbar */
+  #toolbar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  .tbtn { font-size: 13px; padding: 5px 12px; border: 1px solid #b4b2a9; border-radius: 7px; background: white; color: #1a1a18; cursor: pointer; font-family: inherit; }
+  .tbtn:hover { background: #f5f5f0; }
+  .tbtn.active { background: #f0f0e8; border-color: #888780; }
+  .ghost-btn {
+    border: none;
+    background: transparent;
+    color: #6b6a63;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 0;
+    cursor: pointer;
+  }
+  .ghost-btn:hover { color: #3f3d36; background: transparent; }
+
+  /* Range indicator banner */
+  #range-banner {
+    display: none; font-size: 12px; color: #185FA5; background: #E6F1FB;
+    border: 1px solid #B5D4F4; border-radius: 6px;
+    padding: 4px 10px; margin-bottom: 8px;
+  }
+
+  /* Progress */
+  #progress-wrap { display: none; }
+  #progress-bar { height: 4px; background: #1c1c1a; border-radius: 2px; transition: width 0.3s; }
+
+  /* Stats */
+  #statusbar { display: flex; gap: 14px; font-size: 12px; color: #888780; margin-bottom: 10px; flex-wrap: wrap; }
+
+  /* Passage */
+  #passage-wrap { position: relative; }
+  #passage { min-height: 80px; line-height: 2.4; font-size: 16px; padding: 12px 12px 34px 12px; border: 1px solid #ddddd5; border-radius: 10px; margin-bottom: 10px; word-wrap: break-word; background: #ffffff; }
+  #passage.reward-sinking {
+    animation: passageSink 900ms ease forwards;
+  }
+  #passage.reward-sunk {
+    border-color: #cfcfc8;
+    background: linear-gradient(180deg, #f8f8f5 0%, #f1f1ec 100%);
+    box-shadow:
+      inset 0 2px 4px rgba(255,255,255,0.9),
+      inset 0 -3px 8px rgba(0,0,0,0.08);
+  }
+  #passage.reward-sunk .tok {
+    color: #43423d !important;
+    text-shadow:
+      0 1px 0 rgba(255,255,255,0.95),
+      0 -1px 0 rgba(0,0,0,0.22);
+  }
+  @keyframes passageSink {
+    0% {
+      transform: translateY(0);
+      filter: brightness(1);
+      box-shadow:
+        inset 0 0 0 rgba(0,0,0,0),
+        0 0 0 rgba(0,0,0,0);
+    }
+    45% {
+      transform: translateY(1px);
+      filter: brightness(0.98);
+    }
+    100% {
+      transform: translateY(0);
+      filter: brightness(0.96);
+      box-shadow:
+        inset 0 2px 4px rgba(255,255,255,0.9),
+        inset 0 -3px 8px rgba(0,0,0,0.08);
+    }
+  }
+  .tok { display: inline; cursor: pointer; border-radius: 3px; padding: 0 1px; user-select: none; -webkit-user-select: none; }
+  .tok:hover { opacity: 0.85; }
+  .tok.grouped { box-shadow: inset 0 -2px 0 #D8C485; }
+  .tok.promoted { animation: sentencePromote 0.9s ease; }
+  @keyframes sentencePromote {
+    0% { box-shadow: inset 0 -2px 0 #D8C485, 0 0 0 rgba(186,117,23,0); }
+    35% { box-shadow: inset 0 -2px 0 #D8C485, 0 0 10px rgba(186,117,23,0.7); }
+    100% { box-shadow: inset 0 -2px 0 #D8C485, 0 0 0 rgba(186,117,23,0); }
+  }
+
+  /* Cascade pop for full passage win */
+  @keyframes revealPop {
+    0%   { transform: scale(0.8); opacity: 0; }
+    60%  { transform: scale(1.1); }
+    100% { transform: scale(1);   opacity: 1; }
+  }
+  .tok.cascading { display: inline-block; animation: revealPop 0.3s ease forwards; }
+
+  /* Engraved title animation */
+  .title-letter { display: inline-block; transition: color 0.3s ease, text-shadow 0.4s ease; }
+  .title-letter.sunk {
+    color: #444;
+    text-shadow:
+      1px 1px 0px rgba(255,255,255,1),
+      2px 2px 1px rgba(255,255,255,0.6),
+      -1px -1px 0px rgba(0,0,0,0.45),
+      -2px -2px 3px rgba(0,0,0,0.25);
+  }
+
+  /* Transcript */
+  #transcript-box {
+    display: none;
+    min-height: 50px;
+    padding: 10px 12px;
+    border: 1px solid #ddddd5;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #888780;
+    background: #fafaf8;
+    line-height: 1.7;
+    margin-bottom: 12px;
+  }
+
+  /* Transcript */
+  /* Score panel */
+  #score-panel {
+    display: none; border: none; border-radius: 0;
+    padding: 0; margin-bottom: 12px; background: transparent;
+  }
+  #score-missed { display: flex; flex-wrap: wrap; gap: 6px; }
+  #score-missed span {
+    display: inline-block;
+    background: #f0f0e8; color: #888780;
+    border-radius: 20px; padding: 3px 10px; font-size: 13px;
+  }
+  #reward-banner {
+    display: none;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 7px;
+    background: #FAEEDA;
+    color: #854F0B;
+    font-size: 12px;
+    border: 1px solid #E9D2A2;
+  }
+
+  /* Floating mic bar */
+  #mic-bar {
+    display: none; position: fixed; bottom: 0; left: 0; right: 0;
+    background: white; border-top: 1px solid #ddddd5;
+    padding: 10px 20px; z-index: 100;
+    align-items: center; justify-content: center; gap: 14px;
+  }
+  #mic-btn {
+    width: 52px; height: 52px; border-radius: 50%; background: #E24B4A;
+    border: none; cursor: pointer; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-radius 0.2s;
+    box-shadow: 0 2px 8px rgba(226,75,74,0.3); flex-shrink: 0;
+  }
+  #mic-btn.listening { border-radius: 12px; }
+  #mic-btn.listening::after {
+    content: ''; position: absolute;
+    width: 52px; height: 52px; border-radius: 12px;
+    border: 2px solid #E24B4A;
+    animation: pulse 1.2s ease-out infinite; pointer-events: none;
+  }
+  @keyframes pulse {
+    0%   { transform: scale(1);   opacity: 0.7; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+  #mic-btn svg { width: 24px; height: 24px; fill: white; pointer-events: none; }
+  #mic-hint { font-size: 13px; color: #888780; min-width: 160px; }
+  #mic-hint.active { color: #E24B4A; font-weight: 500; }
+  #mic-hint .msg { color: #888780; }
+  #mic-hint .cue { color: #E24B4A; font-weight: 500; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span id="topbar-title">Engrave</span>
+      <span id="analysis-status"></span>
+    </div>
+    <span id="vbadge" onclick="toggleChangelog()" style="position:absolute;right:0;top:0">v 2.10.5</span>
+  </div>
+
+  <div id="changelog">
+    <h3>Changelog</h3>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.10.5 ◀</strong> — Restored structural square color to original light gray</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.10.4</strong> — English legend moved to bottom-right inside passage box; first-page send button anchored bottom-right inside textbox</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.10.2</strong> — Mic hint now uses split colors: encouraging message stays gray, “Tap to recite” cue uses mic red</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.10.1</strong> — Removed language selector; language now auto-detected from passage text (Korean script => ko-KR, otherwise en-US)</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.9.9</strong> — Disabled orange reward banner entirely; encouragement now uses mic-line messaging only</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.9.8</strong> — Restored transcript to original location before score panel; mic line no longer used for transcription text</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.9.7</strong> — Restored persistent “Whiteout:” label with All in Korean mode; mic line now shows dynamic encouragement/congrats plus “Tap to recite” when idle</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.9.6</strong> — Removed duplicate startup message banner and updated mic instruction text to “Great start. White out words. Tap to recite”</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.9.5</strong> — Based on v2.9.3, changed mic line default text from “Tap to recite” to “Great start. Black out words and begin reciting.”</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.9.3</strong> — Increased second-page spacing below logo, removed divider/progress line, and replaced transcript box with mic-hint inline guidance</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.9.2</strong> — Moved word count row below passage box and increased spacing between logo and button controls</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.9.1</strong> — Second-page passage box restored to white; Korean mode now shows only All button (legend, lexical, structural, and label hidden)</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.9.0</strong> — Simplified second page to match first-page minimal style: removed instruction panel and flattened passage/transcript/score cards (no noisy boxes)</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.8.6</strong> — Removed remaining panel look by making app container transparent; only textbox remains white</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.8.5</strong> — First-page textbox area changed to white; removed outer app border so textbox border is the primary frame</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.8.4</strong> — Removed first-page instruction block entirely; placeholder text is now the only initial guidance</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.8.3</strong> — Removed border from first-page instruction box</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.8.2</strong> — First-page instruction card now white; Korean mode now hides legend and lexical/structural controls, showing only All whiteout button</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.8.1</strong> — On page 2, logo now returns to original top-left position; quick instruction moved between transcript message box and mic section</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.8.0</strong> — Converted input to chat-style composer: language selector inside text box area and circular up-arrow Start button on the right</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.7.9</strong> — Increased Reset/New passage spacing, removed commas between right-side whiteout buttons, moved first guide below Start, and moved in-app guide below score panel</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.7.8</strong> — Centered logo on both screens, centered Language/Start controls, simplified step text, and moved quick instructions below passage</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.7.7</strong> — Aligned bottom edge of left action buttons with right-side Whiteout button row</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.7.6</strong> — Matched Reset/New passage to Lexical/Structural/All text-button style and aligned left/right control groups from the same top offset</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.7.5</strong> — Removed “Click - Whiteout word” label; instruction now fully handled by the new guide panels</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.7.4</strong> — Added first-time instruction guides before and after Start, including clear explanation of lexical vs structural words</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.7.3</strong> — Reverted visual redesign to original UI styling while keeping multilingual support and Start-button fix</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.7.2</strong> — Fixed Start button issue by replacing Unicode property-escape regex with broad cross-browser Latin+Korean safe regex</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.7.1</strong> — Added multilingual groundwork for recitation: language selector, Korean (`ko-KR`) mic locale, and Unicode-safe tokenization/normalization for scoring</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.7.0</strong> — Design refinement: scripture-first typography, larger reverent text styling, aligned controls, consistent button typography, and larger legend for readability</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.6.3</strong> — Reverted final reward to original persistent sunken engraving animation (wave effect removed)</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.6.1</strong> — Final reward restored: full-passage success now applies a persistent sunken engraving effect to the entire passage until next action; in-file version synced with filename</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.5.0</strong> — Score percentage removed; missed words shown as neutral pills with no label; panel hidden on perfect score</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.4.9</strong> — Full passage 100%: title animates to "Engraved"; congrats banner removed</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.4.8</strong> — Replaced gold flash with staggered fade on partial 100%</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.4.7</strong> — Whiteout mode: correctly recalled words become fully invisible after scoring</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.4.6</strong> — Whiteout mode toggle button (half/half icon)</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.4.5</strong> — Score panel always shows after every recitation</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.4.4</strong> — Score shows recall % and coverage % as two separate metrics</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.4.3</strong> — No green highlight; partial 100% gold flashes then auto-returns; congrats only when all words blacked at 100%</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.4.2</strong> — Partial 100%: gold flash + 2-note chime. Full passage 100%: cascade reveal + 4-note arpeggio + congrats banner</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.4.1</strong> — Double-click speed slider 50–500ms; first shift+click highlights immediately</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.4.0</strong> — Double-click speed selector; shift+click range; undo and hide-punct buttons removed</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.3.1</strong> — Single click blacks out, double click marks key word; mode buttons removed</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.3.0</strong> — Mic always at bottom; recite mode implicit; perfect score cascade reveal + congrats</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.2.1</strong> — LCS scoring: words must be recalled in correct order</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.2.0</strong> — Scoring restored with score panel and missed words list</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.1.0</strong> — Simplified mic to red circle/square, transcript display only</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-major">major</span><span><strong>2.0.0</strong> — Speech recitation mode with live transcript and scoring</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-major">major</span><span><strong>1.0.0</strong> — Stable: dual blackout colors, key word marker, hide/show punctuation, versioning</span></div>
+  </div>
+
+  <div id="input-area">
+    <div id="composer">
+      <textarea id="tinput" placeholder="Paste your passage here…"></textarea>
+      <div id="composer-controls">
+        <button id="startbtn" onclick="analyzeAndStart()" aria-label="Start">↑</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="main-area" style="display:none">
+    <div id="worktop">
+      <div id="left-tools">
+        <div id="toolbar">
+          <button class="tbtn ghost-btn" onclick="resetAll()">Reset</button>
+          <button class="tbtn ghost-btn" onclick="backToInput()">New passage</button>
+        </div>
+      </div>
+      <div id="right-tools">
+        <div id="hint-row">
+          <div class="hint-actions">
+            <span id="whiteout-label" class="label">Whiteout:</span>
+            <button id="btn-lexical" class="hint-link" onclick="whiteoutByType('lexical')">Lexical</button>
+            <button id="btn-structural" class="hint-link" onclick="whiteoutByType('structural')">Structural</button>
+            <button id="btn-all" class="hint-link" onclick="whiteoutByType('all')">All</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="range-banner"></div>
+    <div id="progress-wrap"><div id="progress-bar" style="width:0%"></div></div>
+    <div id="passage-wrap">
+      <div id="passage"></div>
+      <div id="legend-inbox">
+        <div id="legend">
+          <span><span class="lswatch" style="background:#dfdfd9"></span>Lexical</span>
+          <span><span class="lswatch" style="background:#f0f0ec"></span>Structural</span>
+        </div>
+      </div>
+    </div>
+    <div id="statusbar">
+      <span id="stat-total">Words: 0</span>
+      <span id="stat-blacked">Blacked: 0</span>
+      <span id="stat-visible">Visible: 0</span>
+    </div>
+    <div id="transcript-box"></div>
+    <div id="score-panel">
+      <div id="score-recall-row" style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+        <span id="score-recall-pct" style="font-size:36px;font-weight:500"></span>
+        <span id="score-recall-label" style="font-size:13px;color:#888780"></span>
+      </div>
+      <div id="score-coverage-row" style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
+        <span id="score-coverage-pct" style="font-size:22px;font-weight:500;color:#888780"></span>
+        <span id="score-coverage-label" style="font-size:13px;color:#888780"></span>
+      </div>
+      <div id="score-missed"></div>
+    </div>
+    <div id="reward-banner"></div>
+
+  </div>
+
+</div>
+
+<div id="mic-bar">
+  <button id="mic-btn" onclick="toggleMic()">
+    <svg id="mic-icon" viewBox="0 0 24 24">
+      <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93V20H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2z"/>
+    </svg>
+  </button>
+  <span id="mic-hint"><span class="msg">Great start. White out words.</span> <span class="cue">Tap to recite</span></span>
+</div>
+
+<script>
+const STRUCTURAL = new Set([
+  'a','an','the','in','on','at','by','for','with','about','against','between','into',
+  'through','during','before','after','above','below','to','from','up','down','out',
+  'off','over','under','again','further','then','once','and','but','or','nor','so',
+  'yet','as','if','of','than','that','which','who','whom','this','these','those',
+  'i','you','he','she','it','we','they','me','him','her','us','them','my','your',
+  'his','its','our','their','mine','yours','hers','ours','theirs','myself','yourself',
+  'himself','herself','itself','ourselves','themselves','what','when','where','how',
+  'although','because','since','unless','until','while','whether','both','either',
+  'neither','not','no','nor','is','am','are','was','were','be','been','being',
+  'have','has','had','do','does','did','will','would','could','should','may',
+  'might','shall','must','can','there','here'
+]);
+
+let tokens      = [];
+let isReciting  = false;
+let recognition = null;
+let isListening = false;
+let spokenFinal = [];
+let spokenChunks = [];
+let micReady    = false;
+let micReadyTimer = null;
+const MIC_WARMUP_MS = 700;
+const PROMOTE_STREAK = 1;
+let sentenceSpans = [];
+let sentenceState = [];
+let tokenToSentence = {};
+let lastFinalChunkAt = 0;
+let finalRewardActive = false;
+let currentLanguage = 'en-US';
+let lastIdleMicMessage = 'Great start. White out words.';
+
+// Range disabled in simplified mode
+let rangeStart = null;
+let rangeEnd   = null;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function levenshtein(a, b) {
+  const m=a.length, n=b.length;
+  const dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++)
+    dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+function updateLanguageUi() {
+  const isKorean = currentLanguage.startsWith('ko');
+  const legend = document.getElementById('legend');
+  const legendInbox = document.getElementById('legend-inbox');
+  const lexBtn = document.getElementById('btn-lexical');
+  const structBtn = document.getElementById('btn-structural');
+  if (legend) legend.style.display = isKorean ? 'none' : 'flex';
+  if (legendInbox) legendInbox.style.display = isKorean ? 'none' : 'block';
+  if (lexBtn) lexBtn.style.display = isKorean ? 'none' : 'inline';
+  if (structBtn) structBtn.style.display = isKorean ? 'none' : 'inline';
+}
+
+function autoDetectLanguage(text) {
+  // If passage contains Hangul, use Korean ASR; otherwise default to English.
+  return /[\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF]/.test(text) ? 'ko-KR' : 'en-US';
+}
+
+function setIdleMicHint(message) {
+  if (message) lastIdleMicMessage = message;
+  const hint = document.getElementById('mic-hint');
+  if (!hint || isListening) return;
+  hint.innerHTML = `<span class="msg">${lastIdleMicMessage}</span> <span class="cue">Tap to recite</span>`;
+}
+
+function normalize(w) {
+  if (!w) return '';
+  return w
+    .toLocaleLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9\u00C0-\u024F\u1E00-\u1EFF\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF]/g, '');
+}
+function normalizePhrase(s) {
+  if (!s) return '';
+  return s
+    .toLocaleLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9\u00C0-\u024F\u1E00-\u1EFF\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function speechNormalizeWord(w) {
+  let s = normalize(w);
+  if (!s) return s;
+  if (!currentLanguage.startsWith('en')) return s;
+  s = s
+    .replace(/ph/g, 'f')
+    .replace(/ck/g, 'k')
+    .replace(/q/g, 'k')
+    .replace(/x/g, 'ks')
+    .replace(/c(?=[eiy])/g, 's')
+    .replace(/c/g, 'k')
+    .replace(/dg(e|i|y)/g, 'j$1')
+    .replace(/tion/g, 'shun')
+    .replace(/sion/g, 'zhun')
+    .replace(/ght/g, 't')
+    .replace(/kn/g, 'n')
+    .replace(/wr/g, 'r')
+    .replace(/th/g, 't')
+    .replace(/ss/g, 's');
+
+  // Merge common tiny suffix/surface differences in speech recognition.
+  if (s.length > 3) s = s.replace(/(es|s|ed|d)$/, '');
+  if (s.length > 4) s = s.replace(/e$/, '');
+  // Non-native friendly: de-emphasize final consonant endings.
+  if (s.length > 4) {
+    s = s.replace(/[bcdfghjklmnpqrstvwxyz]{1,2}$/, '');
+  }
+  return s;
+}
+function speechNormalizePhrase(s) {
+  return normalizePhrase(s).split(/\s+/).filter(Boolean).map(speechNormalizeWord).join(' ');
+}
+
+function toggleChangelog() {
+  const el=document.getElementById('changelog');
+  el.style.display=el.style.display==='none'?'block':'none';
+}
+
+// ── Tokenizer ─────────────────────────────────────────────────────────────────
+
+function tokenize(text) {
+  const toks=[];
+  const re=/([A-Za-z0-9\u00C0-\u024F\u1E00-\u1EFF\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF'\u2019\-]+)|([.,!?;:\"\u201C\u201D'()\[\]\u2026\u2014\u2013\u3002\u3001\uff01\uff1f])|(\s+)/g;
+  let m;
+  while((m=re.exec(text))!==null) {
+    if(m[1]) toks.push({id:toks.length,text:m[1],kind:'word',blacked:false,revealed:false,isKey:false,wtype:STRUCTURAL.has(m[1].toLowerCase())?'structural':'lexical'});
+    else if(m[2]) toks.push({id:toks.length,text:m[2],kind:'punct',blacked:false,revealed:false,isKey:false,wtype:'punct'});
+    else toks.push({id:toks.length,text:m[3],kind:'space',blacked:false,revealed:false,isKey:false,wtype:'space'});
+  }
+  return toks;
+}
+
+// ── Range helpers ─────────────────────────────────────────────────────────────
+
+// Returns sorted [lo, hi] token ids for the current range, or null if no range
+function getRangeBounds() {
+  return null;
+}
+
+function isInRange(tokenId) {
+  const b=getRangeBounds();
+  if(!b) return false;
+  return tokenId>=b[0] && tokenId<=b[1];
+}
+
+function clearRange() {
+  return;
+}
+
+function updateRangeBanner() {
+  const banner=document.getElementById('range-banner');
+  banner.style.display='none';
+}
+
+function getSentenceSpans() {
+  const spans = [];
+  let start = null;
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.kind === 'word' && start === null) start = i;
+    if (start !== null && t.kind === 'punct' && /[.!?]/.test(t.text)) {
+      spans.push({ start, end: i });
+      start = null;
+    }
+  }
+  if (start !== null) spans.push({ start, end: tokens.length - 1 });
+  return spans;
+}
+
+function initSentenceState() {
+  sentenceSpans = getSentenceSpans();
+  sentenceState = sentenceSpans.map(() => ({ grouped: false, streak: 0 }));
+  tokenToSentence = {};
+  sentenceSpans.forEach((s, idx) => {
+    for (let i = s.start; i <= s.end; i++) tokenToSentence[i] = idx;
+  });
+}
+
+function getSentenceIndexByTokenId(tokenId) {
+  return typeof tokenToSentence[tokenId] === 'number' ? tokenToSentence[tokenId] : -1;
+}
+
+function getSentenceWordTokens(sentenceIdx) {
+  const span = sentenceSpans[sentenceIdx];
+  if (!span) return [];
+  return tokens.filter(t => t.kind === 'word' && t.id >= span.start && t.id <= span.end);
+}
+
+function toggleSentenceBlackout(sentenceIdx) {
+  const span = sentenceSpans[sentenceIdx];
+  if (!span) return;
+  const words = getSentenceWordTokens(sentenceIdx);
+  const shouldBlackout = !words.every(w => w.blacked);
+  tokens.forEach(t => {
+    if (t.id >= span.start && t.id <= span.end && (t.kind === 'word' || t.kind === 'punct')) {
+      t.blacked = shouldBlackout;
+      if (!shouldBlackout) t.revealed = false;
+    }
+  });
+}
+
+function sentenceText(sentenceIdx) {
+  const span = sentenceSpans[sentenceIdx];
+  if (!span) return '';
+  return tokens.filter(t => t.id >= span.start && t.id <= span.end).map(t => t.text).join('');
+}
+
+function showEncouragement(msg, holdMs = 2500) {
+  const el = document.getElementById('reward-banner');
+  if (el) {
+    el.textContent = '';
+    el.style.display = 'none';
+  }
+  setIdleMicHint(msg);
+}
+
+function applyFinalReward() {
+  finalRewardActive = true;
+  const passage = document.getElementById('passage');
+  passage.classList.remove('reward-sunk');
+  passage.classList.remove('reward-sinking');
+  void passage.offsetWidth;
+  passage.classList.add('reward-sinking');
+  setTimeout(() => {
+    passage.classList.remove('reward-sinking');
+    passage.classList.add('reward-sunk');
+  }, 900);
+  showEncouragement('Outstanding. Passage engraved.', 0);
+}
+
+function clearFinalReward() {
+  if (!finalRewardActive) return;
+  finalRewardActive = false;
+  const passage = document.getElementById('passage');
+  passage.classList.remove('reward-sinking');
+  passage.classList.remove('reward-sunk');
+}
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+
+async function analyzeAndStart() {
+  const txt=document.getElementById('tinput').value.trim();
+  if(!txt) return;
+  currentLanguage = autoDetectLanguage(txt);
+  clearFinalReward();
+  tokens=tokenize(txt);
+  initSentenceState();
+  lastFinalChunkAt = 0;
+  rangeStart=null; rangeEnd=null;
+  document.getElementById('input-area').style.display='none';
+  document.getElementById('main-area').style.display='block';
+  document.body.classList.add('main-active');
+  updateLanguageUi();
+  document.getElementById('mic-bar').style.display='flex';
+  setIdleMicHint('Great start. White out words.');
+  render();
+
+  const st=document.getElementById('analysis-status');
+  st.style.display='inline-block'; st.className='as-warn'; st.textContent='Analyzing…';
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:
+        `Classify each word. Return only JSON array, no markdown. Format: [{"word":"the","type":"structural"},{"word":"runs","type":"lexical"},...]. Types: "lexical" for nouns/verbs/adjectives/adverbs; "structural" for articles/prepositions/conjunctions/pronouns. Text: ${txt}`}]})
+    });
+    const data=await res.json();
+    const raw=data.content.map(c=>c.text||'').join('').replace(/```json|```/g,'').trim();
+    const cls=JSON.parse(raw); const map={};
+    cls.forEach(c=>{map[c.word.toLowerCase()]=c.type;});
+    tokens.forEach(t=>{if(t.kind==='word'&&map[t.text.toLowerCase()]) t.wtype=map[t.text.toLowerCase()];});
+    st.className='as-ok'; st.textContent='API analysis ✓';
+  } catch(e) { st.className='as-warn'; st.textContent='Local classifier'; }
+  render();
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+let whiteout = true;
+
+function blackoutColor(t) {
+  if (whiteout) {
+    if (t.kind==='punct') return '#f0f0ec';
+    return t.wtype==='structural' ? '#f0f0ec' : '#dfdfd9';
+  }
+  if (t.kind==='punct') return '#787870';
+  return t.wtype==='structural' ? '#787870' : '#1c1c1a';
+}
+
+function textColor() {
+  return whiteout ? '#e8e8e4' : 'transparent';
+}
+
+function render() {
+  const p=document.getElementById('passage');
+  let html='';
+  const md='onmousedown="event.preventDefault()"';
+
+  tokens.forEach(t=>{
+    if(t.kind==='space'){html+=t.text;return;}
+
+    const inRange=isInRange(t.id);
+    const sentenceIdx = getSentenceIndexByTokenId(t.id);
+    const groupedSentence = sentenceIdx !== -1 && sentenceState[sentenceIdx]?.grouped;
+
+    // Range outline style: blue outline for words in range
+    let rangeStyle='';
+    if(t.kind==='word' && inRange) rangeStyle='outline:2px solid #378ADD;outline-offset:1px;';
+    if(t.kind==='word' && groupedSentence) rangeStyle += 'box-shadow:inset 0 -2px 0 #D8C485;';
+
+    if(t.kind==='punct'){
+      if(t.blacked) {
+        const pc = blackoutColor(t);
+        const tc = whiteout ? pc : 'transparent';
+        // In whiteout mode, revealed punct becomes invisible
+        if(whiteout && t.revealed)
+          html+=`<span class="tok" ${md} onclick="clickTok(${t.id})" style="background:transparent;color:transparent;border-radius:3px">${t.text}</span>`;
+        else
+          html+=`<span class="tok" ${md} onclick="clickTok(${t.id})" style="background:${pc};color:${tc};border-radius:3px">${t.text}</span>`;
+      } else
+        html+=`<span class="tok" ${md} onclick="clickTok(${t.id})">${t.text}</span>`;
+      return;
+    }
+
+    if(t.blacked){
+      const bg=blackoutColor(t);
+      const tc = whiteout ? bg : 'transparent';
+      // In whiteout mode, revealed words become fully invisible
+      if(whiteout && t.revealed)
+        html+=`<span class="tok" id="tok-${t.id}" ${md} onclick="clickTok(${t.id})" style="background:transparent;color:transparent;border-radius:3px;box-shadow:inset 0 -2px 0 #D8C485;${rangeStyle}">${t.text}</span>`;
+      else
+        html+=`<span class="tok" id="tok-${t.id}" ${md} onclick="clickTok(${t.id})" style="background:${bg};color:${tc};border-radius:3px;${rangeStyle}">${t.text}</span>`;
+    } else
+      html+=`<span class="tok" id="tok-${t.id}" ${md} onclick="clickTok(${t.id})" style="${rangeStyle}">${t.text}</span>`;
+  });
+
+  p.innerHTML=html;
+  updateStats();
+  updateRangeBanner();
+}
+
+// ── Click handler ─────────────────────────────────────────────────────────────
+
+function clickTok(id) {
+  clearFinalReward();
+  const t=tokens[id];
+  if(!t||t.kind==='space') return;
+
+  // Recite mode: single click reveals a blacked word
+  if(isReciting) {
+    if(t.blacked||(t.kind==='punct'&&t.blacked)){
+      t.revealed=!t.revealed; render();
+    }
+    return;
+  }
+
+  // Punctuation: single click blackout only
+  if(t.kind==='punct'){
+    t.blacked=!t.blacked; render();
+    return;
+  }
+
+  const sentenceIdx = getSentenceIndexByTokenId(id);
+  if (t.kind === 'word' && sentenceIdx !== -1 && sentenceState[sentenceIdx]?.grouped) {
+    toggleSentenceBlackout(sentenceIdx);
+    render();
+    return;
+  }
+
+  // Words: single click blackout toggle
+  t.blacked=!t.blacked;
+  render();
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+
+function resetAll() {
+  clearFinalReward();
+  tokens.forEach(t=>{t.blacked=false;t.revealed=false;t.isKey=false;});
+  isReciting=false; spokenFinal=[]; spokenChunks=[];
+  sentenceState = sentenceState.map(() => ({ grouped: false, streak: 0 }));
+  lastFinalChunkAt = 0;
+  rangeStart=null; rangeEnd=null;
+  stopMic();
+  document.getElementById('transcript-box').style.display='none';
+  document.getElementById('transcript-box').textContent='';
+  document.getElementById('score-panel').style.display='none';
+  document.getElementById('reward-banner').style.display='none';
+  
+  render();
+}
+
+function blackoutAll() {
+  clearFinalReward();
+  tokens.forEach(t => {
+    if (t.kind === 'word') {
+      t.blacked = true;
+      t.revealed = false;
+    }
+  });
+  render();
+  showEncouragement('All words blacked out. You are ready to recite.', 0);
+}
+
+function whiteoutByType(kind) {
+  clearFinalReward();
+  const candidates = tokens.filter(t => t.kind === 'word' && (kind === 'all' || t.wtype === kind));
+  const allCurrentlyBlacked = candidates.length > 0 && candidates.every(t => t.blacked);
+  const nextBlacked = !allCurrentlyBlacked;
+
+  candidates.forEach(t => {
+    t.blacked = nextBlacked;
+    if (!nextBlacked) t.revealed = false;
+  });
+  render();
+  const label = kind === 'all' ? 'all words' : `${kind} words`;
+  showEncouragement(`${nextBlacked ? 'Whiteout applied to' : 'Unhidden'} ${label}.`, 0);
+}
+
+function backToInput() {
+  clearFinalReward();
+  stopMic();
+  tokens=[]; isReciting=false; spokenFinal=[]; spokenChunks=[];
+  sentenceSpans=[]; sentenceState=[]; tokenToSentence={};
+  lastFinalChunkAt = 0;
+  rangeStart=null; rangeEnd=null;
+  document.getElementById('main-area').style.display='none';
+  document.getElementById('input-area').style.display='block';
+  document.body.classList.remove('main-active');
+  document.getElementById('mic-bar').style.display='none';
+  document.getElementById('analysis-status').style.display='none';
+  document.getElementById('transcript-box').style.display='none';
+  document.getElementById('transcript-box').textContent='';
+  document.getElementById('score-panel').style.display='none';
+  document.getElementById('reward-banner').style.display='none';
+  
+  document.getElementById('range-banner').style.display='none';
+}
+
+function updateStats() {
+  const words=tokens.filter(t=>t.kind==='word');
+  const blacked=words.filter(t=>t.blacked).length;
+  document.getElementById('stat-total').textContent=`Words: ${words.length}`;
+  document.getElementById('stat-blacked').textContent=`Blacked: ${blacked}`;
+  document.getElementById('stat-visible').textContent=`Visible: ${words.length-blacked}`;
+  const pct=words.length?(blacked/words.length)*100:0;
+  document.getElementById('progress-bar').style.width=Math.round(pct)+'%';
+}
+
+// ── Scoring ───────────────────────────────────────────────────────────────────
+
+function phraseMatch(a, b) {
+  const aa = speechNormalizePhrase(a);
+  const bb = speechNormalizePhrase(b);
+  if (!aa || !bb) return false;
+  const maxLen = Math.max(aa.length, bb.length);
+  const dist = levenshtein(aa, bb);
+  return dist <= Math.max(8, Math.floor(maxLen * 0.28));
+}
+
+function isWordApproxMatch(a, b) {
+  const dist = levenshtein(a, b);
+  const len = Math.max(a.length, b.length);
+  return dist <= (len <= 4 ? 2 : 3);
+}
+
+function phraseContainedInSpoken(expectedPhrase, spokenPhrase) {
+  const e = speechNormalizePhrase(expectedPhrase);
+  const s = speechNormalizePhrase(spokenPhrase);
+  if (!e || !s) return false;
+  if (s.includes(e)) return true;
+
+  const ew = e.split(/\s+/).filter(Boolean);
+  const sw = s.split(/\s+/).filter(Boolean);
+  if (!ew.length || !sw.length) return false;
+
+  // Word-order subsequence check with approximate token match:
+  // handles cases where ASR merges multiple sentences into one chunk.
+  let j = 0;
+  for (let i = 0; i < ew.length; i++) {
+    let found = false;
+    while (j < sw.length) {
+      if (isWordApproxMatch(ew[i], sw[j])) {
+        found = true;
+        j++;
+        break;
+      }
+      j++;
+    }
+    // Allow tiny function-word misses (e.g., "in", "of") in containment fallback.
+    if (!found && ew[i].length <= 2) continue;
+    if (!found) return false;
+  }
+  return true;
+}
+
+function containsApproxWord(word, spokenWords) {
+  return spokenWords.some(sw => isWordApproxMatch(word, sw));
+}
+
+function lcsMatchIndices(expected, spoken, matchFn) {
+  const m = expected.length;
+  const n = spoken.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+    dp[i][j] = matchFn(expected[i - 1], spoken[j - 1])
+      ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+
+  const matched = new Set();
+  let i = m, j = n;
+  while (i > 0 && j > 0) {
+    if (matchFn(expected[i - 1], spoken[j - 1]) && dp[i][j] === dp[i - 1][j - 1] + 1) {
+      matched.add(i - 1); i--; j--;
+    } else if (dp[i - 1][j] >= dp[i][j - 1]) i--;
+    else j--;
+  }
+  return matched;
+}
+
+function buildUnits(bounds) {
+  const allUnits = [];
+  sentenceSpans.forEach((span, sentenceIdx) => {
+    const words = getSentenceWordTokens(sentenceIdx);
+    if (!words.length) return;
+    const inScope = bounds ? words.some(w => w.id >= bounds[0] && w.id <= bounds[1]) : true;
+    if (!inScope) return;
+
+    if (sentenceState[sentenceIdx]?.grouped) {
+      allUnits.push({
+        type: 'sentence',
+        sentenceIdx,
+        words,
+        text: sentenceText(sentenceIdx)
+      });
+    } else {
+      words.forEach(token => allUnits.push({
+        type: 'word',
+        sentenceIdx,
+        token,
+        text: token.text
+      }));
+    }
+  });
+  const activeUnits = allUnits.filter(u => u.type === 'sentence' ? u.words.some(w => w.blacked) : u.token.blacked);
+  return { allUnits, activeUnits };
+}
+
+function animateSentencePromotion(sentenceIdx) {
+  getSentenceWordTokens(sentenceIdx).forEach(w => {
+    const el = document.getElementById('tok-' + w.id);
+    if (!el) return;
+    el.classList.remove('promoted');
+    void el.offsetWidth;
+    el.classList.add('promoted');
+  });
+}
+
+function showRewardBanner(promotedCount) {
+  const msg = promotedCount === 1
+    ? 'Reward: 1 sentence engraved into a single chunk.'
+    : `Reward: ${promotedCount} sentences engraved into single chunks.`;
+  showEncouragement(msg, 0);
+}
+
+function playPromotionTone() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [
+      { freq: 587.33, time: 0, dur: 0.14 },
+      { freq: 783.99, time: 0.12, dur: 0.24 }
+    ];
+    notes.forEach(n => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(n.freq, ctx.currentTime + n.time);
+      gain.gain.setValueAtTime(0, ctx.currentTime + n.time);
+      gain.gain.linearRampToValueAtTime(0.16, ctx.currentTime + n.time + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + n.time + n.dur);
+      osc.start(ctx.currentTime + n.time);
+      osc.stop(ctx.currentTime + n.time + n.dur);
+    });
+  } catch (e) {}
+}
+
+function scoreFinal() {
+  const b = getRangeBounds();
+  const { allUnits, activeUnits } = buildUnits(b);
+  if (!activeUnits.length) return;
+
+  const wordUnits = activeUnits.filter(u => u.type === 'word');
+  const sentenceUnits = activeUnits.filter(u => u.type === 'sentence');
+
+  const matchedWordTokenIds = new Set();
+  const matchedSentenceIds = new Set();
+  let correct = 0;
+  const missed = [];
+
+  if (wordUnits.length) {
+    const expectedWords = wordUnits.map(u => speechNormalizeWord(u.text));
+    const spokenWords = spokenFinal.map(speechNormalizeWord).filter(Boolean);
+    const matchedWordIdx = lcsMatchIndices(expectedWords, spokenWords, isWordApproxMatch);
+    const matchedWordUnitIdx = new Set();
+    matchedWordIdx.forEach(idx => {
+      const tok = wordUnits[idx].token;
+      matchedWordUnitIdx.add(idx);
+      matchedWordTokenIds.add(tok.id);
+      tok.revealed = true;
+      correct++;
+    });
+
+    // Fallback A: merged spoken tokens like "namesake" vs "name's sake".
+    // Also recover cases where one side was already matched by LCS.
+    for (let i = 0; i < wordUnits.length - 1; i++) {
+      const a = expectedWords[i];
+      const b = expectedWords[i + 1];
+      if (!a || !b) continue;
+      const combined = a + b;
+      if (!containsApproxWord(combined, spokenWords)) continue;
+      [i, i + 1].forEach((idx) => {
+        if (matchedWordUnitIdx.has(idx)) return;
+        matchedWordUnitIdx.add(idx);
+        const u = wordUnits[idx];
+        matchedWordTokenIds.add(u.token.id);
+        u.token.revealed = true;
+        correct++;
+      });
+      i++;
+    }
+
+    // Fallback B: forgive unmatched structural words (function words).
+    for (let i = 0; i < wordUnits.length; i++) {
+      if (matchedWordUnitIdx.has(i)) continue;
+      const u = wordUnits[i];
+      if (u.token.wtype === 'structural') {
+        matchedWordUnitIdx.add(i);
+        matchedWordTokenIds.add(u.token.id);
+        u.token.revealed = true;
+        correct++;
+      }
+    }
+
+    wordUnits.forEach((u, idx) => {
+      if (!matchedWordUnitIdx.has(idx)) missed.push(u.token.text);
+    });
+  }
+
+  if (sentenceUnits.length) {
+    const expectedSentences = sentenceUnits.map(u => speechNormalizePhrase(u.text));
+    const spokenSentences = spokenChunks.map(speechNormalizePhrase).filter(Boolean);
+    const matchedSentenceIdx = lcsMatchIndices(expectedSentences, spokenSentences, phraseMatch);
+    matchedSentenceIdx.forEach(idx => {
+      const sentenceIdx = sentenceUnits[idx].sentenceIdx;
+      matchedSentenceIds.add(sentenceIdx);
+      sentenceUnits[idx].words.forEach(w => { w.revealed = true; });
+      correct++;
+    });
+    sentenceUnits.forEach(u => {
+      if (!matchedSentenceIds.has(u.sentenceIdx)) {
+        const txt = u.text.trim();
+        missed.push(txt.length > 60 ? txt.slice(0, 57) + '...' : txt);
+      }
+    });
+
+    // Fallback pass for merged ASR chunks:
+    // if a grouped sentence was missed by LCS chunk alignment, try matching
+    // against the full transcript text as a contained ordered phrase.
+    const fullSpoken = spokenSentences.join(' ');
+    sentenceUnits.forEach(u => {
+      if (matchedSentenceIds.has(u.sentenceIdx)) return;
+      if (!phraseContainedInSpoken(u.text, fullSpoken)) return;
+      matchedSentenceIds.add(u.sentenceIdx);
+      u.words.forEach(w => { w.revealed = true; });
+      correct++;
+
+      const txt = u.text.trim();
+      const short = txt.length > 60 ? txt.slice(0, 57) + '...' : txt;
+      const idx = missed.indexOf(short);
+      if (idx !== -1) missed.splice(idx, 1);
+    });
+  }
+
+  const promoted = [];
+  sentenceSpans.forEach((s, sentenceIdx) => {
+    const state = sentenceState[sentenceIdx];
+    if (!state || state.grouped) return;
+    const words = getSentenceWordTokens(sentenceIdx);
+    if (!words.length) return;
+    const inScope = b ? words.some(w => w.id >= b[0] && w.id <= b[1]) : true;
+    if (!inScope) return;
+    const fullyBlacked = words.every(w => w.blacked);
+    if (!fullyBlacked) return;
+
+    const sentenceSuccess = words.every(w => matchedWordTokenIds.has(w.id));
+    if (sentenceSuccess) {
+      state.streak += 1;
+      if (state.streak >= PROMOTE_STREAK) {
+        state.grouped = true;
+        state.streak = 0;
+        promoted.push(sentenceIdx);
+      }
+    } else {
+      state.streak = 0;
+    }
+  });
+
+  const totalUnits = activeUnits.length;
+  const pct = Math.round((correct / totalUnits) * 100);
+  const rangeLabel = b ? ' in range' : '';
+  const coverageTotal = allUnits.length;
+  const coverageUnits = activeUnits.length;
+  const covPct = coverageTotal ? Math.round((coverageUnits / coverageTotal) * 100) : 0;
+  const hasMixedUnits = wordUnits.length > 0 && sentenceUnits.length > 0;
+  const unitLabel = hasMixedUnits ? 'blacked units' : (sentenceUnits.length ? 'blacked sentences' : 'blacked words');
+  const covLabel = hasMixedUnits ? 'units' : (sentenceUnits.length ? 'sentences' : 'words');
+
+  document.getElementById('score-panel').style.display = 'block';
+  const recallEl = document.getElementById('score-recall-pct');
+  recallEl.textContent = pct + '%';
+  recallEl.style.color = pct>=80 ? '#3B6D11' : pct>=50 ? '#854F0B' : '#993C1D';
+  document.getElementById('score-recall-label').textContent =
+    `recall — ${correct} of ${totalUnits} ${unitLabel} correct${rangeLabel}`;
+  document.getElementById('score-coverage-pct').textContent = covPct + '%';
+  document.getElementById('score-coverage-label').textContent =
+    `coverage — ${coverageUnits} of ${coverageTotal} ${covLabel} blacked out`;
+  document.getElementById('score-missed').innerHTML = missed.length
+    ? missed.map(w => `<span>${w}</span>`).join('') : '';
+
+  if (promoted.length) {
+    render();
+    promoted.forEach(animateSentencePromotion);
+    showRewardBanner(promoted.length);
+    playPromotionTone();
+  }
+
+  const allBlacked = allUnits.length > 0 && allUnits.every(u => u.type === 'sentence'
+    ? u.words.every(w => w.blacked)
+    : u.token.blacked);
+  const blackedWords = Array.from(
+    new Map(
+      activeUnits.flatMap(u => u.type === 'sentence' ? u.words : [u.token]).map(w => [w.id, w])
+    ).values()
+  );
+
+  if (pct === 100 && allBlacked) {
+    playChime('full');
+    cascadeReveal(blackedWords, () => { applyFinalReward(); }, { persist: true });
+  } else if (pct === 100) {
+    staggerFadeReveal(blackedWords);
+  } else {
+    showEncouragement('Keep going. You are improving with each pass.', 0);
+    autoReturnToBlackout();
+  }
+}
+
+function autoReturnToBlackout() {
+  isReciting = false;
+  render();
+}
+
+// ── Stagger fade (partial 100%) ───────────────────────────────────────────────
+// Words fade out left to right, 80ms stagger between each
+
+function staggerFadeReveal(blackedWords) {
+  playChime('partial');
+  const fadeDur = 500;
+  const stagger = 80;
+
+  blackedWords.forEach((t, idx) => {
+    setTimeout(() => {
+      const el = document.getElementById('tok-' + t.id);
+      if (!el) return;
+      el.style.transition = `background ${fadeDur}ms ease, color ${fadeDur}ms ease`;
+      el.style.background = 'transparent';
+      el.style.color      = 'transparent';
+    }, idx * stagger);
+  });
+
+  // After all fades done, auto-return
+  const totalMs = blackedWords.length * stagger + fadeDur + 150;
+  setTimeout(() => { autoReturnToBlackout(); }, totalMs);
+}
+
+// ── Full passage reveal (100% all blacked) ───────────────────────────────────
+// Words pop in, then title animates from "Engrave" to "Engraved" letter-by-letter sinking in
+
+function cascadeReveal(blackedWords, onComplete, opts = { persist: true }) {
+  const persist = opts.persist !== false;
+  const original = blackedWords.map(t => ({ id: t.id, blacked: t.blacked, revealed: t.revealed }));
+  blackedWords.forEach(t => { t.blacked = false; });
+  render();
+  blackedWords.forEach((t, idx) => {
+    setTimeout(() => {
+      const el = document.getElementById('tok-' + t.id);
+      if (el) el.classList.add('cascading');
+    }, idx * 80);
+  });
+  // After words pop in, trigger title engraving
+  setTimeout(() => {
+    isReciting = false;
+    if (!persist) {
+      setTimeout(() => {
+        original.forEach(s => {
+          const tok = tokens[s.id];
+          if (!tok) return;
+          tok.blacked = true;
+          tok.revealed = false;
+        });
+        render();
+      }, 1200);
+    }
+    if (typeof onComplete === 'function') onComplete();
+  }, blackedWords.length * 80 + 400);
+}
+
+// ── Sound ─────────────────────────────────────────────────────────────────────
+
+function playChime(type) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    if (type === 'partial') {
+      // Two-note ascending chime: satisfying but brief
+      const notes = [
+        { freq: 523.25, time: 0,    dur: 0.18 },  // C5
+        { freq: 783.99, time: 0.14, dur: 0.28 },  // G5
+      ];
+      notes.forEach(n => {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(n.freq, ctx.currentTime + n.time);
+        gain.gain.setValueAtTime(0, ctx.currentTime + n.time);
+        gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + n.time + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + n.time + n.dur);
+        osc.start(ctx.currentTime + n.time);
+        osc.stop(ctx.currentTime + n.time + n.dur);
+      });
+
+    } else {
+      // Full passage: four-note ascending arpeggio — triumphant
+      const notes = [
+        { freq: 523.25, time: 0,    dur: 0.2  },  // C5
+        { freq: 659.25, time: 0.12, dur: 0.2  },  // E5
+        { freq: 783.99, time: 0.24, dur: 0.2  },  // G5
+        { freq: 1046.5, time: 0.38, dur: 0.55 },  // C6
+      ];
+      notes.forEach(n => {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(n.freq, ctx.currentTime + n.time);
+        gain.gain.setValueAtTime(0, ctx.currentTime + n.time);
+        gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + n.time + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + n.time + n.dur);
+        osc.start(ctx.currentTime + n.time);
+        osc.stop(ctx.currentTime + n.time + n.dur);
+      });
+    }
+  } catch(e) {
+    // Audio not available — fail silently
+  }
+}
+
+// ── Mic ───────────────────────────────────────────────────────────────────────
+
+function toggleMic() {
+  if(isListening) stopMic();
+  else startMic();
+}
+
+function startMic() {
+  clearFinalReward();
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('Speech recognition requires Chrome or Edge.');return;}
+
+  const blackedCount=tokens.filter(t=>t.kind==='word'&&t.blacked).length;
+  if(!blackedCount){
+    alert('Black out some words first, then tap to recite.');
+    return;
+  }
+
+  isReciting=true; spokenFinal=[];
+  spokenChunks=[];
+  micReady=false;
+  lastFinalChunkAt = 0;
+  tokens.forEach(t=>{t.revealed=false;});
+  document.getElementById('score-panel').style.display='none';
+  // Keep encouragement visible between attempts.
+  const tb=document.getElementById('transcript-box');
+  tb.style.display='block';
+  tb.textContent='';
+
+  render();
+
+  recognition=new SR();
+  recognition.continuous=true; recognition.interimResults=true; recognition.lang=currentLanguage;
+  let displayText='';
+
+  recognition.onstart=()=>{
+    document.getElementById('mic-hint').textContent='Mic on… wait';
+    document.getElementById('mic-hint').classList.add('active');
+    if(micReadyTimer) clearTimeout(micReadyTimer);
+    micReadyTimer=setTimeout(()=>{
+      micReady=true;
+      document.getElementById('mic-hint').textContent='Listening… speak now';
+      playReadyTone();
+    }, MIC_WARMUP_MS);
+  };
+
+  recognition.onresult=e=>{
+    if(!micReady) return;
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal){
+        const chunk=e.results[i][0].transcript;
+        displayText+=chunk+' ';
+        spokenChunks.push(chunk.trim());
+        chunk.trim().split(/\s+/).forEach(w=>{if(w) spokenFinal.push(w);});
+      } else interim+=e.results[i][0].transcript;
+    }
+    tb.innerHTML=`<span style="color:#1a1a18">${displayText}</span><span style="color:#b0b0a8">${interim}</span>`;
+  };
+
+  recognition.onerror=e=>{
+    const msgs={'not-allowed':'Mic access denied — click the mic icon in the address bar and allow.','no-speech':'No speech detected. Try again.','network':'Network error — speech recognition needs internet.'};
+    tb.textContent=msgs[e.error]||('Error: '+e.error);
+    stopMic();
+  };
+
+  recognition.onend=()=>{if(isListening) recognition.start();};
+  recognition.start(); isListening=true;
+  document.getElementById('mic-btn').classList.add('listening');
+  document.getElementById('mic-icon').innerHTML='<rect x="4" y="4" width="16" height="16" rx="2"/>';
+  document.getElementById('mic-hint').textContent='Starting mic…';
+  document.getElementById('mic-hint').classList.add('active');
+}
+
+function stopMic() {
+  if(micReadyTimer){clearTimeout(micReadyTimer);micReadyTimer=null;}
+  micReady=false;
+  if(recognition){recognition.onend=null;recognition.stop();recognition=null;}
+  isListening=false;
+  document.getElementById('mic-btn').classList.remove('listening');
+  document.getElementById('mic-icon').innerHTML='<path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93V20H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2z"/>';
+  setIdleMicHint();
+  document.getElementById('mic-hint').classList.remove('active');
+  if(spokenFinal.length>0) scoreFinal();
+}
+
+function playReadyTone() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(659.25, ctx.currentTime);
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.1, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.16);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.17);
+  } catch (e) {
+    // Audio not available — fail silently
+  }
+}
+
+</script>
+</body>
+</html>
