@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Engrave v2.10.5</title>
+<title>Engrave v2.11.0</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; color: #1a1a18; min-height: 100vh; padding: 20px 20px 160px; }
@@ -17,6 +17,54 @@
   body.main-active #topbar { margin-bottom: 38px; }
   #vbadge { font-size: 12px; color: #888780; cursor: pointer; border: 1px solid #ddddd5; padding: 2px 10px; border-radius: 6px; }
   #vbadge:hover { background: #f5f5f0; }
+  #beta-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+    align-items: center;
+  }
+  .beta-btn {
+    border: 1px solid #d2d2cb;
+    background: #fff;
+    color: #4b4a43;
+    border-radius: 7px;
+    font-size: 12px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .beta-btn:hover { background: #f5f5f0; }
+  #feedback-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  #feedback-card {
+    width: min(560px, 100%);
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #ddddd5;
+    padding: 14px;
+  }
+  #feedback-card h3 { font-size: 15px; margin-bottom: 8px; }
+  #feedback-text {
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 13px;
+    border: 1px solid #ddddd5;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  #feedback-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
   /* Changelog */
   #changelog { display: none; border: 1px solid #ddddd5; border-radius: 8px; padding: 12px; margin-bottom: 14px; font-size: 13px; }
@@ -302,12 +350,20 @@
       <span id="topbar-title">Engrave</span>
       <span id="analysis-status"></span>
     </div>
-    <span id="vbadge" onclick="toggleChangelog()" style="position:absolute;right:0;top:0">v 2.10.5</span>
+    <span id="vbadge" onclick="toggleChangelog()" style="position:absolute;right:0;top:0">v 2.11.0</span>
+  </div>
+
+  <div id="beta-panel">
+    <button class="beta-btn" onclick="openFeedbackModal()">💬 Leave Feedback</button>
+    <button class="beta-btn" onclick="exportUsageLog()">📊 Export Usage Log</button>
+    <button class="beta-btn" onclick="viewSessionStats()">👁️ View Session Stats</button>
+    <button class="beta-btn" onclick="clearUsageLog()">🗑️ Clear Log</button>
   </div>
 
   <div id="changelog">
     <h3>Changelog</h3>
-    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.10.5 ◀</strong> — Restored structural square color to original light gray</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-major">major</span><span><strong>2.11.0 ◀</strong> — Added Beta Testing Panel, local usage tracking, feedback modal, session stats, and .txt export log</span></div>
+    <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.10.5</strong> — Restored structural square color to original light gray</span></div>
     <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.10.4</strong> — English legend moved to bottom-right inside passage box; first-page send button anchored bottom-right inside textbox</span></div>
     <div class="cl-entry"><span class="cl-tag cl-minor">minor</span><span><strong>2.10.2</strong> — Mic hint now uses split colors: encouraging message stays gray, “Tap to recite” cue uses mic red</span></div>
     <div class="cl-entry"><span class="cl-tag cl-medium">medium</span><span><strong>2.10.1</strong> — Removed language selector; language now auto-detected from passage text (Korean script => ko-KR, otherwise en-US)</span></div>
@@ -430,6 +486,17 @@
   <span id="mic-hint"><span class="msg">Great start. White out words.</span> <span class="cue">Tap to recite</span></span>
 </div>
 
+<div id="feedback-modal" onclick="closeFeedbackModal(event)">
+  <div id="feedback-card" onclick="event.stopPropagation()">
+    <h3>Beta Tester Feedback</h3>
+    <textarea id="feedback-text" placeholder="What worked well? What was confusing? Any bugs?"></textarea>
+    <div id="feedback-actions">
+      <button class="beta-btn" onclick="submitFeedback()">Submit</button>
+      <button class="beta-btn" onclick="closeFeedbackModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const STRUCTURAL = new Set([
   'a','an','the','in','on','at','by','for','with','about','against','between','into',
@@ -462,10 +529,163 @@ let lastFinalChunkAt = 0;
 let finalRewardActive = false;
 let currentLanguage = 'en-US';
 let lastIdleMicMessage = 'Great start. White out words.';
+const BETA_LOG_KEY = 'engrave_beta_log_v1';
+let betaLog = loadBetaLog();
+let activeSessionId = null;
 
 // Range disabled in simplified mode
 let rangeStart = null;
 let rangeEnd   = null;
+
+function loadBetaLog() {
+  try {
+    const raw = localStorage.getItem(BETA_LOG_KEY);
+    if (!raw) return { createdAt: new Date().toISOString(), sessions: [], events: [] };
+    const parsed = JSON.parse(raw);
+    if (!parsed.sessions) parsed.sessions = [];
+    if (!parsed.events) parsed.events = [];
+    return parsed;
+  } catch (e) {
+    return { createdAt: new Date().toISOString(), sessions: [], events: [] };
+  }
+}
+
+function saveBetaLog() {
+  localStorage.setItem(BETA_LOG_KEY, JSON.stringify(betaLog));
+}
+
+function startSession() {
+  const session = {
+    id: `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    startAt: new Date().toISOString(),
+    endAt: null
+  };
+  betaLog.sessions.push(session);
+  activeSessionId = session.id;
+  saveBetaLog();
+  logEvent('session_started', {});
+}
+
+function endSession() {
+  if (!activeSessionId) return;
+  const s = betaLog.sessions.find(x => x.id === activeSessionId);
+  if (s && !s.endAt) s.endAt = new Date().toISOString();
+  logEvent('session_ended', {});
+  saveBetaLog();
+}
+
+function logEvent(type, details = {}) {
+  if (!activeSessionId) startSession();
+  betaLog.events.push({
+    ts: new Date().toISOString(),
+    sessionId: activeSessionId,
+    type,
+    details
+  });
+  saveBetaLog();
+}
+
+function openFeedbackModal() {
+  const el = document.getElementById('feedback-modal');
+  if (el) el.style.display = 'flex';
+}
+
+function closeFeedbackModal(evt) {
+  if (evt && evt.target && evt.target.id !== 'feedback-modal') return;
+  const el = document.getElementById('feedback-modal');
+  if (el) el.style.display = 'none';
+}
+
+function submitFeedback() {
+  const ta = document.getElementById('feedback-text');
+  const text = (ta?.value || '').trim();
+  if (!text) {
+    alert('Please write feedback first.');
+    return;
+  }
+  logEvent('feedback_submitted', { text });
+  ta.value = '';
+  closeFeedbackModal();
+  alert('Thanks — feedback saved locally.');
+}
+
+function sessionMetrics(sessionId) {
+  const events = betaLog.events.filter(e => e.sessionId === sessionId);
+  const start = betaLog.sessions.find(s => s.id === sessionId)?.startAt;
+  const end = betaLog.sessions.find(s => s.id === sessionId)?.endAt;
+  const durationMin = (start && end)
+    ? Math.max(0, Math.round((new Date(end) - new Date(start)) / 60000))
+    : null;
+  const passages = events.filter(e => e.type === 'passage_started').length;
+  const blacked = events.filter(e => e.type === 'word_blacked').length;
+  const attempts = events.filter(e => e.type === 'recitation_started').length;
+  const scores = events.filter(e => e.type === 'scored').map(e => e.details.recallPct);
+  const feedback = events.filter(e => e.type === 'feedback_submitted').map(e => e.details.text);
+  return { durationMin, passages, blacked, attempts, scores, feedback };
+}
+
+function viewSessionStats() {
+  const sessions = betaLog.sessions;
+  if (!sessions.length) {
+    alert('No usage data yet.');
+    return;
+  }
+  const current = sessions[sessions.length - 1];
+  const m = sessionMetrics(current.id);
+  alert(
+    `Session Stats\n\n` +
+    `Passages started: ${m.passages}\n` +
+    `Words blacked: ${m.blacked}\n` +
+    `Recitation attempts: ${m.attempts}\n` +
+    `Scores: ${m.scores.length ? m.scores.join('%, ') + '%' : 'None'}\n` +
+    `Feedback entries: ${m.feedback.length}`
+  );
+}
+
+function exportUsageLog() {
+  const now = new Date().toISOString();
+  const lines = [];
+  lines.push('ENGRAVE BETA TEST LOG');
+  lines.push(`Generated: ${now}`);
+  lines.push('');
+  lines.push('SESSION SUMMARY:');
+  betaLog.sessions.forEach((s, idx) => {
+    const m = sessionMetrics(s.id);
+    lines.push(`Session ${idx + 1}: ${s.startAt}`);
+    lines.push(`  Duration: ${m.durationMin !== null ? m.durationMin + ' minutes' : 'In progress'}`);
+    lines.push(`  Passages started: ${m.passages}`);
+    lines.push(`  Total words blacked: ${m.blacked}`);
+    lines.push(`  Recitation attempts: ${m.attempts}`);
+    lines.push(`  Scores: ${m.scores.length ? m.scores.join('%, ') + '%' : 'None'}`);
+    if (m.feedback.length) lines.push(`  Feedback: "${m.feedback[m.feedback.length - 1]}"`);
+  });
+  lines.push('');
+  lines.push('DETAILED LOG:');
+  betaLog.events.forEach(e => {
+    lines.push(`[${e.ts}] ${e.type} - ${JSON.stringify(e.details)}`);
+  });
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `engrave-beta-log-${Date.now()}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  logEvent('usage_log_exported', {});
+}
+
+function clearUsageLog() {
+  if (!confirm('Clear all beta logs from this browser?')) return;
+  localStorage.removeItem(BETA_LOG_KEY);
+  betaLog = loadBetaLog();
+  activeSessionId = null;
+  startSession();
+  logEvent('usage_log_cleared', {});
+  alert('Usage log cleared.');
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -682,6 +902,8 @@ function clearFinalReward() {
 async function analyzeAndStart() {
   const txt=document.getElementById('tinput').value.trim();
   if(!txt) return;
+  const wordCount = tokenize(txt).filter(t => t.kind === 'word').length;
+  logEvent('passage_started', { wordCount, length: txt.length });
   currentLanguage = autoDetectLanguage(txt);
   clearFinalReward();
   tokens=tokenize(txt);
@@ -809,12 +1031,14 @@ function clickTok(id) {
 
   // Words: single click blackout toggle
   t.blacked=!t.blacked;
+  logEvent(t.blacked ? 'word_blacked' : 'word_unblacked', { word: t.text, tokenId: id });
   render();
 }
 
 // ── Controls ──────────────────────────────────────────────────────────────────
 
 function resetAll() {
+  logEvent('reset_all', {});
   clearFinalReward();
   tokens.forEach(t=>{t.blacked=false;t.revealed=false;t.isKey=false;});
   isReciting=false; spokenFinal=[]; spokenChunks=[];
@@ -839,6 +1063,7 @@ function blackoutAll() {
     }
   });
   render();
+  logEvent('feature_blackout_all', { wordsAffected: tokens.filter(t => t.kind === 'word').length });
   showEncouragement('All words blacked out. You are ready to recite.', 0);
 }
 
@@ -853,11 +1078,13 @@ function whiteoutByType(kind) {
     if (!nextBlacked) t.revealed = false;
   });
   render();
+  logEvent('whiteout_by_type', { kind, affected: candidates.length, nowBlacked: nextBlacked });
   const label = kind === 'all' ? 'all words' : `${kind} words`;
   showEncouragement(`${nextBlacked ? 'Whiteout applied to' : 'Unhidden'} ${label}.`, 0);
 }
 
 function backToInput() {
+  logEvent('new_passage', {});
   clearFinalReward();
   stopMic();
   tokens=[]; isReciting=false; spokenFinal=[]; spokenChunks=[];
@@ -1167,8 +1394,16 @@ function scoreFinal() {
     `coverage — ${coverageUnits} of ${coverageTotal} ${covLabel} blacked out`;
   document.getElementById('score-missed').innerHTML = missed.length
     ? missed.map(w => `<span>${w}</span>`).join('') : '';
+  logEvent('scored', {
+    recallPct: pct,
+    coveragePct: covPct,
+    correct,
+    totalUnits,
+    missed
+  });
 
   if (promoted.length) {
+    logEvent('group_sentence', { count: promoted.length });
     render();
     promoted.forEach(animateSentencePromotion);
     showRewardBanner(promoted.length);
@@ -1325,6 +1560,7 @@ function startMic() {
   }
 
   isReciting=true; spokenFinal=[];
+  logEvent('recitation_started', { blackedCount });
   spokenChunks=[];
   micReady=false;
   lastFinalChunkAt = 0;
@@ -1389,6 +1625,7 @@ function stopMic() {
   document.getElementById('mic-icon').innerHTML='<path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93V20H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2z"/>';
   setIdleMicHint();
   document.getElementById('mic-hint').classList.remove('active');
+  logEvent('recitation_stopped', { spokenWords: spokenFinal.length });
   if(spokenFinal.length>0) scoreFinal();
 }
 
@@ -1410,6 +1647,9 @@ function playReadyTone() {
     // Audio not available — fail silently
   }
 }
+
+startSession();
+window.addEventListener('beforeunload', endSession);
 
 </script>
 </body>
